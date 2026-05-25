@@ -1,0 +1,17 @@
+
+*.pyc
+*.pyd
+*.pyo
+.DS_Store
+.env
+.env.*
+__pycache__/
+checkpoints/
+data/images/
+data/temp/
+dataset/images/
+dataset/labels/
+frontend/static/uploads/
+logs/
+outputs/
+venv/

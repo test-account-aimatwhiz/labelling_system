@@ -1,0 +1,38 @@
+nut
+bolt
+gear
+pipe
+metal
+washer
+bearing
+rod
+spring
+brake_disc
+tube
+HMS
+METAL FRAME
+ENGINE FRAME
+PUMP
+TMT BAR
+structural steel
+steel pipe
+brake disc
+metal_box
+pile of metal_scrap
+cylinder
+pile of scrap_metal
+unknown
+salvaged_steel
+sheet
+pipe_rod
+iron_pipe
+braks_disc
+wire mesh
+strctural_steel
+tmt_bar
+metal_wire
+steel_frame
+worn_metal
+rail wheel
+weathered_metal_scrap
+steel_pipe
