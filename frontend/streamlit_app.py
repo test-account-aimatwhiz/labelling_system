@@ -139,33 +139,34 @@ with st.sidebar:
         )
         adv_pred_iou = st.slider(
             "Pred IoU threshold",
-            min_value=0.60, max_value=0.95, step=0.01,
-            value=0.74 if recall_mode_label == "Industrial Parts" else
+            min_value=0.40, max_value=0.95, step=0.01,
+            value=0.50 if recall_mode_label == "Industrial Parts" else
                   0.80 if recall_mode_label == "Max Recall" else
                   0.84 if recall_mode_label == "High Recall" else 0.88,
             help="Lower → SAM accepts masks whose own IoU prediction is uncertain. "
-                 "Gaskets and thin parts need ≤ 0.80.",
+                 "Gaskets and thin parts need ≤ 0.60.",
         )
         adv_stability = st.slider(
             "Stability score threshold",
-            min_value=0.70, max_value=0.98, step=0.01,
-            value=0.82 if recall_mode_label == "Industrial Parts" else
+            min_value=0.50, max_value=0.98, step=0.01,
+            value=0.60 if recall_mode_label == "Industrial Parts" else
                   0.90 if recall_mode_label == "Max Recall" else
                   0.93 if recall_mode_label == "High Recall" else 0.95,
             help="Lower → keeps less-stable masks (thin gasket edges often score low).",
         )
         adv_points = st.slider(
             "Points per side",
-            min_value=16, max_value=64, step=4,
-            value=64 if recall_mode_label == "Industrial Parts" else
+            min_value=16, max_value=128, step=4,
+            value=128 if recall_mode_label == "Industrial Parts" else
                   40 if recall_mode_label == "Max Recall" else
                   32 if recall_mode_label == "High Recall" else 24,
-            help="Dense grid catches small passages and fine gasket boundaries.",
+            help="Dense grid catches small passages and fine gasket boundaries. "
+                 "128 = maximum density for Industrial Parts.",
         )
         adv_dedup_contains = st.slider(
             "Containment dedup ratio",
-            min_value=0.70, max_value=0.99, step=0.01,
-            value=0.88 if recall_mode_label == "Industrial Parts" else 0.97,
+            min_value=0.60, max_value=0.99, step=0.01,
+            value=0.75 if recall_mode_label == "Industrial Parts" else 0.97,
             help="Lower → keeps masks that are nested inside larger ones "
                  "(e.g. gasket inside engine head).",
         )

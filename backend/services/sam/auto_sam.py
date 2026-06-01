@@ -180,21 +180,22 @@ class AutoSAM:
             # Tuned for complex metallic parts: gaskets (thin boundaries),
             # carburetors (many sub-components, nested passages).
             # Key changes vs "max":
-            #   - points_per_side 64  → denser grid catches small passages & gasket edges
-            #   - pred_iou_thresh 0.74 → accepts masks with uncertain boundaries
-            #   - stability_score_thresh 0.82 → keeps less-stable thin-part masks
-            #   - crop_n_layers 2      → hierarchical crops find sub-components
-            #   - dedup_contains 0.88  → allows nested parts (gasket inside head)
-            #   - dedup_iou 0.78       → treats similar-looking masks as duplicates only
-            #                            when very similar (not just overlapping)
+            #   - points_per_side 128  → maximum density; catches every gasket edge
+            #                            and fine carburetor passage
+            #   - pred_iou_thresh 0.50  → very permissive; accepts uncertain boundaries
+            #   - stability_score_thresh 0.60 → keeps highly unstable thin-part masks
+            #   - crop_n_layers 2       → hierarchical crops find sub-components
+            #   - dedup_contains 0.75   → allows heavily nested parts
+            #   - dedup_iou 0.78        → dedup only when masks are very similar
+            #   preprocessing: CLAHE + Sharpening + Gamma + Edge enhancement
             "industrial": {
-                "points_per_side": 64,
+                "points_per_side": 128,
                 "points_per_batch": 32,
-                "pred_iou_thresh": 0.74,
-                "stability_score_thresh": 0.82,
+                "pred_iou_thresh": 0.50,
+                "stability_score_thresh": 0.60,
                 "crop_n_layers": 2,
                 "dedup_iou": 0.78,
-                "dedup_contains": 0.88,
+                "dedup_contains": 0.75,
             },
         }
         mode_params = params_by_mode.get(recall_mode, params_by_mode["high"])
