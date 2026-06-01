@@ -3,7 +3,7 @@ import torch
 class Settings:
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-    CHECKPOINT_PATH = "checkpoints/sam_vit_h.pth"
+    CHECKPOINT_PATH = "backend/services/sam/checkpoints/sam_vit_h.pth"
 
     IMAGE_SIZE = 1024
 

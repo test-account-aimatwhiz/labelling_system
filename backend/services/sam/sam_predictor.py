@@ -10,7 +10,7 @@ class SAMPredictor:
         # self.model is intentionally public — AutoSAM uses it for
         # SamAutomaticMaskGenerator which requires the raw SAM model.
         self.model = sam_model_registry["vit_h"](
-            checkpoint="checkpoints/sam_vit_h.pth"
+            checkpoint="backend/services/sam/checkpoints/sam_vit_h.pth"
         )
 
         self.model.to(device=device)

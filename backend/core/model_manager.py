@@ -31,7 +31,7 @@ class ModelManager:
 
     def load_checkpoint(self):
 
-        checkpoint_path = "checkpoints/sam_vit_h.pth"
+        checkpoint_path = "backend/services/sam/checkpoints/sam_vit_h.pth"
 
         if not os.path.exists(checkpoint_path):
             raise ModelLoadError(

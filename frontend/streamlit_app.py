@@ -106,15 +106,20 @@ with st.sidebar:
     st.header("⚙️ Segmentation Tuning")
     recall_mode_label = st.selectbox(
         "Recall Mode",
-        options=["Balanced", "High Recall", "Max Recall"],
+        options=["Balanced", "High Recall", "Max Recall", "Industrial Parts"],
         index=1,
-        help="Higher recall finds more small/weak objects but is slower.",
+        help=(
+            "**Industrial Parts** — tuned for cylinder head gaskets, carburetors "
+            "and similar metallic components: denser point grid, lower thresholds, "
+            "5× preprocessing variants (CLAHE + edge-enhanced + gamma + sharpen). "
+            "Slower but finds thin and complex-shaped parts."
+        ),
     )
     min_area_px = st.number_input(
         "Min object area (pixels)",
         min_value=5,
         max_value=5000,
-        value=30,
+        value=15 if recall_mode_label == "Industrial Parts" else 30,
         step=5,
         help="Lower this to keep tiny fragments. Raise to remove noise.",
     )
@@ -126,6 +131,44 @@ with st.sidebar:
         step=50,
         help="Upper cap to protect memory/time on dense scrap scenes.",
     )
+
+    with st.expander("🔬 Advanced SAM Parameters", expanded=False):
+        st.caption(
+            "Override the defaults for the chosen mode. "
+            "Lower thresholds → more masks (useful for gaskets / carburetors)."
+        )
+        adv_pred_iou = st.slider(
+            "Pred IoU threshold",
+            min_value=0.60, max_value=0.95, step=0.01,
+            value=0.74 if recall_mode_label == "Industrial Parts" else
+                  0.80 if recall_mode_label == "Max Recall" else
+                  0.84 if recall_mode_label == "High Recall" else 0.88,
+            help="Lower → SAM accepts masks whose own IoU prediction is uncertain. "
+                 "Gaskets and thin parts need ≤ 0.80.",
+        )
+        adv_stability = st.slider(
+            "Stability score threshold",
+            min_value=0.70, max_value=0.98, step=0.01,
+            value=0.82 if recall_mode_label == "Industrial Parts" else
+                  0.90 if recall_mode_label == "Max Recall" else
+                  0.93 if recall_mode_label == "High Recall" else 0.95,
+            help="Lower → keeps less-stable masks (thin gasket edges often score low).",
+        )
+        adv_points = st.slider(
+            "Points per side",
+            min_value=16, max_value=64, step=4,
+            value=64 if recall_mode_label == "Industrial Parts" else
+                  40 if recall_mode_label == "Max Recall" else
+                  32 if recall_mode_label == "High Recall" else 24,
+            help="Dense grid catches small passages and fine gasket boundaries.",
+        )
+        adv_dedup_contains = st.slider(
+            "Containment dedup ratio",
+            min_value=0.70, max_value=0.99, step=0.01,
+            value=0.88 if recall_mode_label == "Industrial Parts" else 0.97,
+            help="Lower → keeps masks that are nested inside larger ones "
+                 "(e.g. gasket inside engine head).",
+        )
 
     st.divider()
     st.header("📊 Stats")
@@ -177,11 +220,17 @@ if run:
         "Balanced": "balanced",
         "High Recall": "high",
         "Max Recall": "max",
+        "Industrial Parts": "industrial",
     }
     seg_config = {
         "recall_mode": mode_map[recall_mode_label],
         "min_area_px": int(min_area_px),
         "max_masks": int(max_masks),
+        # Advanced overrides (always passed so the backend uses the slider values)
+        "pred_iou_thresh": adv_pred_iou,
+        "stability_score_thresh": adv_stability,
+        "points_per_side": adv_points,
+        "dedup_contains": adv_dedup_contains,
     }
 
     with st.spinner("SAM3 segmenting all objects…"):

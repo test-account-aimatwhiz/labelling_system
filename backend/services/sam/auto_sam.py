@@ -35,6 +35,40 @@ class AutoSAM:
         return cv2.cvtColor(out, cv2.COLOR_LAB2RGB)
 
     @staticmethod
+    def _aggressive_clahe(image):
+        """Tight tile grid + high clip — maximises local contrast on metal surfaces."""
+        lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
+        l2 = clahe.apply(l)
+        out = cv2.merge((l2, a, b))
+        return cv2.cvtColor(out, cv2.COLOR_LAB2RGB)
+
+    @staticmethod
+    def _edge_enhanced(image):
+        """
+        Blend a Canny edge map into the luminance channel.
+        Helps SAM find thin gasket boundaries and fine carburetor passages.
+        """
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+        edges = cv2.Canny(blurred, 30, 100)
+        # Dilate edges slightly so they are wide enough for SAM to pick up
+        edges = cv2.dilate(edges, np.ones((2, 2), np.uint8), iterations=1)
+        edge_rgb = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
+        blended = cv2.addWeighted(image.astype(np.float32), 0.80,
+                                  edge_rgb.astype(np.float32), 0.20, 0)
+        return np.clip(blended, 0, 255).astype(np.uint8)
+
+    @staticmethod
+    def _gamma_correct(image, gamma=1.5):
+        """Brighten dark metallic recesses to expose hidden detail."""
+        inv_gamma = 1.0 / gamma
+        table = np.array([(i / 255.0) ** inv_gamma * 255
+                          for i in range(256)], dtype=np.uint8)
+        return cv2.LUT(image, table)
+
+    @staticmethod
     def _sharpen(image):
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         return cv2.filter2D(image, -1, kernel)
@@ -122,6 +156,8 @@ class AutoSAM:
                 "pred_iou_thresh": 0.88,
                 "stability_score_thresh": 0.95,
                 "crop_n_layers": 1,
+                "dedup_iou": dedup_iou,
+                "dedup_contains": dedup_contains,
             },
             "high": {
                 "points_per_side": 32,
@@ -129,6 +165,8 @@ class AutoSAM:
                 "pred_iou_thresh": 0.84,
                 "stability_score_thresh": 0.93,
                 "crop_n_layers": 1,
+                "dedup_iou": dedup_iou,
+                "dedup_contains": dedup_contains,
             },
             "max": {
                 "points_per_side": 40,
@@ -136,14 +174,50 @@ class AutoSAM:
                 "pred_iou_thresh": 0.80,
                 "stability_score_thresh": 0.90,
                 "crop_n_layers": 2,
+                "dedup_iou": dedup_iou,
+                "dedup_contains": dedup_contains,
+            },
+            # Tuned for complex metallic parts: gaskets (thin boundaries),
+            # carburetors (many sub-components, nested passages).
+            # Key changes vs "max":
+            #   - points_per_side 64  → denser grid catches small passages & gasket edges
+            #   - pred_iou_thresh 0.74 → accepts masks with uncertain boundaries
+            #   - stability_score_thresh 0.82 → keeps less-stable thin-part masks
+            #   - crop_n_layers 2      → hierarchical crops find sub-components
+            #   - dedup_contains 0.88  → allows nested parts (gasket inside head)
+            #   - dedup_iou 0.78       → treats similar-looking masks as duplicates only
+            #                            when very similar (not just overlapping)
+            "industrial": {
+                "points_per_side": 64,
+                "points_per_batch": 32,
+                "pred_iou_thresh": 0.74,
+                "stability_score_thresh": 0.82,
+                "crop_n_layers": 2,
+                "dedup_iou": 0.78,
+                "dedup_contains": 0.88,
             },
         }
         mode_params = params_by_mode.get(recall_mode, params_by_mode["high"])
+
+        # Override dedup from config if caller passed explicit values; otherwise
+        # use the mode-specific defaults set above.
+        effective_dedup_iou = float(config.get("dedup_iou", mode_params["dedup_iou"]))
+        effective_dedup_contains = float(
+            config.get("dedup_contains", mode_params["dedup_contains"])
+        )
 
         variants = [image]
         if recall_mode in {"high", "max"}:
             variants.append(self._clahe_rgb(image))
         if recall_mode == "max":
+            variants.append(self._sharpen(image))
+        if recall_mode == "industrial":
+            # Five variants: original, aggressive CLAHE, edge-enhanced,
+            # gamma-brightened, and sharpened — covers the range of
+            # lighting/contrast conditions on metal parts.
+            variants.append(self._aggressive_clahe(image))
+            variants.append(self._edge_enhanced(image))
+            variants.append(self._gamma_correct(image, gamma=1.5))
             variants.append(self._sharpen(image))
 
         all_masks = []
@@ -166,8 +240,8 @@ class AutoSAM:
             mask_arrays=all_masks,
             min_area_px=min_area_px,
             max_area_ratio=max_area_ratio,
-            dedup_iou=dedup_iou,
-            dedup_contains=dedup_contains,
+            dedup_iou=effective_dedup_iou,
+            dedup_contains=effective_dedup_contains,
             max_masks=max_masks,
         )
 
